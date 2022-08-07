@@ -2,14 +2,11 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "Types.generated.h"
 
-/**
- * 
- */
-class LASTLIGHT_API Types
+UCLASS()
+class LASTLIGHT_API UTypes : public UBlueprintFunctionLibrary
 {
-public:
-	Types();
-	~Types();
+	GENERATED_BODY()
 };
