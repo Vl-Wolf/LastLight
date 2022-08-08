@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "LastLight/FuncLibrary/Types.h"
 #include "LastLightCharacter.generated.h"
 
 class UInputComponent;
@@ -70,6 +71,26 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	uint8 bUsingMotionControllers : 1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		FCharacterSpeed MovementInfo;
+
+
+	void CharacterUpdate();
+	void ChangeMovementState();
+	void SetMovementState(EMovementState NewState);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+		EMovementState GetMovementState();
+
+private:
+
+	//Movement flags
+	bool SprintRunEnabled = false;
+	bool WalkEnabled = false;
+	bool AimEnabled = false;
+
+	EMovementState MovementState = EMovementState::Run_State;
+
 protected:
 	
 	/** Fires a projectile. */
@@ -92,6 +113,15 @@ protected:
 	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	 */
 	void LookUpAtRate(float Rate);
+
+	void InputSprintPressed();
+	void InputSprintReleased();
+
+	void InputWalkPressed();
+	void InputWalkReleased();
+
+	void InputAimPressed();
+	void InputAimReleased();
 	
 protected:
 	// APawn interface

@@ -4,6 +4,7 @@
 #include "LastLight/Weapons/Projectiles/LastLightProjectile.h"
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
@@ -70,9 +71,9 @@ void ALastLightCharacter::BeginPlay()
 	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 }
 
+
 //////////////////////////////////////////////////////////////////////////
 // Input
-
 void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
 	// set up gameplay key bindings
@@ -89,13 +90,135 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAxis("MoveForward", this, &ALastLightCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ALastLightCharacter::MoveRight);
 
-	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
-	// "turn" handles devices that provide an absolute delta, such as a mouse.
-	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
 	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
-	PlayerInputComponent->BindAxis("TurnRate", this, &ALastLightCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
-	PlayerInputComponent->BindAxis("LookUpRate", this, &ALastLightCharacter::LookUpAtRate);
+
+
+	PlayerInputComponent->BindAction("ChangeToSprint", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputSprintPressed);
+	PlayerInputComponent->BindAction("ChangeToSprint", EInputEvent::IE_Released, this, &ALastLightCharacter::InputSprintReleased);
+
+	PlayerInputComponent->BindAction("ChangeToWalk", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputWalkPressed);
+	PlayerInputComponent->BindAction("ChangeToWalk", EInputEvent::IE_Released, this, &ALastLightCharacter::InputWalkReleased);
+
+	PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputAimPressed);
+	PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Released, this, &ALastLightCharacter::InputAimReleased);
+}
+
+void ALastLightCharacter::InputSprintPressed()
+{
+	SprintRunEnabled = true;
+	ChangeMovementState();
+}
+
+void ALastLightCharacter::InputSprintReleased()
+{
+	SprintRunEnabled = false;
+	ChangeMovementState();
+}
+
+void ALastLightCharacter::InputWalkPressed()
+{
+	WalkEnabled = true;
+	ChangeMovementState();
+}
+
+void ALastLightCharacter::InputWalkReleased()
+{
+	WalkEnabled = false;
+	ChangeMovementState();
+}
+
+void ALastLightCharacter::InputAimPressed()
+{
+	AimEnabled = true;
+	ChangeMovementState();
+}
+
+void ALastLightCharacter::InputAimReleased()
+{
+	AimEnabled = false;
+	ChangeMovementState();
+}
+
+
+void ALastLightCharacter::CharacterUpdate()
+{
+	float ResSpeed = 600.0f;
+	switch (MovementState)
+	{
+	case EMovementState::Aim_State:
+		ResSpeed = MovementInfo.AimSpeed;
+		break;
+	case EMovementState::Walk_State:
+		ResSpeed = MovementInfo.WalkSpeed;
+		break;
+	case EMovementState::Run_State:
+		ResSpeed = MovementInfo.RunSpeed;
+		break;
+	case EMovementState::AimWalk_State:
+		ResSpeed = MovementInfo.AimWalkSpeed;
+		break;
+	case EMovementState::Sprint_State:
+		ResSpeed = MovementInfo.SprintSpeed;
+		break;
+	default:
+		break;
+	}
+
+	GetCharacterMovement()->MaxWalkSpeed = ResSpeed;
+}
+
+void ALastLightCharacter::ChangeMovementState()
+{
+	EMovementState NewState = EMovementState::Run_State;
+
+	if (!SprintRunEnabled && !WalkEnabled && !AimEnabled)
+	{
+		NewState = EMovementState::Run_State;
+	}
+	else
+	{
+		if (SprintRunEnabled)
+		{
+			NewState = EMovementState::Sprint_State;
+			WalkEnabled = false;
+			AimEnabled = false;
+		}
+		else
+		{
+			if (!SprintRunEnabled && WalkEnabled && AimEnabled)
+			{
+				NewState = EMovementState::AimWalk_State;
+			}
+			else
+			{
+				if (!SprintRunEnabled && WalkEnabled && !AimEnabled)
+				{
+					NewState = EMovementState::Walk_State;
+				}
+				else
+				{
+					if (!SprintRunEnabled && !WalkEnabled && AimEnabled)
+					{
+						NewState = EMovementState::Aim_State;
+					}
+				}
+			}
+		}
+	}
+
+	SetMovementState(NewState);
+}
+
+void ALastLightCharacter::SetMovementState(EMovementState NewState)
+{
+	MovementState = NewState;
+	CharacterUpdate();
+}
+
+EMovementState ALastLightCharacter::GetMovementState()
+{
+	return MovementState;
 }
 
 void ALastLightCharacter::OnFire()
@@ -162,8 +285,8 @@ void ALastLightCharacter::TurnAtRate(float Rate)
 	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 }
 
-void ALastLightCharacter::LookUpAtRate(float Rate)
-{
-	// calculate delta for this frame from the rate information
-	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
-}
+//void ALastLightCharacter::LookUpAtRate(float Rate)
+//{
+//	// calculate delta for this frame from the rate information
+//	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
+//}

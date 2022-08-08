@@ -10,3 +10,52 @@ class LASTLIGHT_API UTypes : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 };
+
+UENUM(BlueprintType)
+enum class EMovementState : uint8
+{
+	Aim_State UMETA(DisplayName = "Aim State"),
+	AimWalk_State UMETA(DisplayName = "Aim State"),
+	Walk_State UMETA(DisplayName = "Walk State"),
+	Run_State UMETA(DisplayName = "Run State"),
+	Sprint_State UMETA(DisplayName = "Sprint State"),
+};
+
+USTRUCT(BlueprintType)
+struct FCharacterSpeed
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float AimSpeed = 300.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float WalkSpeed = 200.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float AimWalkSpeed = 100.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float RunSpeed = 600.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float SprintSpeed = 800.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FAnumationWeaponInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Character")
+		UAnimMontage* AnimCharacterFire = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Character")
+		UAnimMontage* AnimCharacterFireAim = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Character")
+		UAnimMontage* AnimCharacterReload = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Character")
+		UAnimMontage* AnimCharacterReloadAim = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Weapon")
+		UAnimMontage* AnimWeaponFire = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Weapon")
+		UAnimMontage* AnimWeaponReload = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation Weapon")
+		UAnimMontage* AnimWeaponReloadAim = nullptr;
+};
