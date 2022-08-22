@@ -28,6 +28,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 		class UCameraComponent* Camera;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+		class USkeletalMeshComponent* CharacterHead;
+
 protected:
 	virtual void BeginPlay();
 
@@ -43,6 +46,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float MoveRightValue;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 		FCharacterSpeed MovementInfo;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponDEMO")
@@ -54,6 +60,8 @@ public:
 	void SetMovementState(EMovementState NewState);
 	
 	void AttackCharEvent(bool bIsFiring);
+	void CrouchCharEvent(bool bIsCrouching);
+	void JumpCharEvent(bool bIsJumping);
 
 	UFUNCTION(BlueprintCallable)
 		//FName WeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo
@@ -79,15 +87,25 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 		EMovementState GetMovementState();
 
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+		bool GetSprintRunEnabled();
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+		bool GetCrouchEnabled();
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+		bool GetADSEnabled();
+
 
 private:
 
 	//Movement flags
 	bool SprintRunEnabled = false;
 	bool WalkEnabled = false;
-	bool AimEnabled = false;
+	//bool AimEnabled = false;
+	bool CrouchEnabled = false;
+	bool ADSEnabled = false;
 
-	EMovementState MovementState = EMovementState::Run_State;
+
+	EMovementState MovementState = EMovementState::Walk_State;
 
 	UPROPERTY()
 		AWeaponDefault* CurrentWeapon = nullptr;
@@ -107,11 +125,17 @@ protected:
 	void InputWalkPressed();
 	void InputWalkReleased();
 
-	void InputAimPressed();
-	void InputAimReleased();
+	void InputJumpPressed();
+	void InputJumpReleased();
+
+	//void InputAimPressed();
+	//void InputAimReleased();
 
 	void InputAttackPressed();
 	void InputAttackReleased();
+
+	void InputCrouchPressed();
+	void InputCrouchReleased();
 
 	void MovementTick();
 	

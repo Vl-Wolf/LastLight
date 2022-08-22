@@ -31,7 +31,9 @@ ALastLightCharacter::ALastLightCharacter()
 
 	PrimaryActorTick.bCanEverTick = false;
 
-
+	CharacterHead = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterHead"));
+	CharacterHead->SetOnlyOwnerSee(false);
+	CharacterHead->SetupAttachment(GetMesh(), FName("head"));
 
 	// Create a CameraComponent	
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
@@ -45,6 +47,8 @@ void ALastLightCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	InitWeapon(InitWeaponName);
+	
+	GetCharacterMovement()->MaxWalkSpeed = MovementInfo.WalkSpeed;
 }
 
 void ALastLightCharacter::Tick(float DeltaSeconds)
@@ -63,8 +67,8 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	check(PlayerInputComponent);
 
 	// Bind jump events
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ALastLightCharacter::InputJumpPressed);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ALastLightCharacter::InputJumpReleased);
 
 	// Bind fire event
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ALastLightCharacter::InputAttackPressed);
@@ -84,8 +88,11 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("ChangeToWalk", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputWalkPressed);
 	PlayerInputComponent->BindAction("ChangeToWalk", EInputEvent::IE_Released, this, &ALastLightCharacter::InputWalkReleased);
 
-	PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputAimPressed);
-	PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Released, this, &ALastLightCharacter::InputAimReleased);
+	//PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputAimPressed);
+	//PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Released, this, &ALastLightCharacter::InputAimReleased);
+
+	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputCrouchPressed);
+	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Released, this, &ALastLightCharacter::InputCrouchReleased);
 }
 
 void ALastLightCharacter::InputSprintPressed()
@@ -112,17 +119,27 @@ void ALastLightCharacter::InputWalkReleased()
 	ChangeMovementState();
 }
 
-void ALastLightCharacter::InputAimPressed()
+void ALastLightCharacter::InputJumpPressed()
 {
-	AimEnabled = true;
-	ChangeMovementState();
+	JumpCharEvent(true);
 }
 
-void ALastLightCharacter::InputAimReleased()
+void ALastLightCharacter::InputJumpReleased()
 {
-	AimEnabled = false;
-	ChangeMovementState();
+	JumpCharEvent(false);
 }
+
+//void ALastLightCharacter::InputAimPressed()
+//{
+//	AimEnabled = true;
+//	ChangeMovementState();
+//}
+
+//void ALastLightCharacter::InputAimReleased()
+//{
+//	AimEnabled = false;
+//	ChangeMovementState();
+//}
 
 void ALastLightCharacter::InputAttackPressed()
 {
@@ -134,23 +151,30 @@ void ALastLightCharacter::InputAttackReleased()
 	AttackCharEvent(false);
 }
 
+void ALastLightCharacter::InputCrouchPressed()
+{
+	CrouchEnabled = true;
+	CrouchCharEvent(true);
+	ChangeMovementState();
+}
+
+void ALastLightCharacter::InputCrouchReleased()
+{
+	CrouchEnabled = false;
+	CrouchCharEvent(false);
+	ChangeMovementState();
+}
 
 void ALastLightCharacter::CharacterUpdate()
 {
-	float ResSpeed = 600.0f;
+	float ResSpeed = 150.0f;
 	switch (MovementState)
 	{
-	case EMovementState::Aim_State:
-		ResSpeed = MovementInfo.AimSpeed;
+	case EMovementState::Crouch_State:
+		ResSpeed = MovementInfo.CrouchSpeed;
 		break;
 	case EMovementState::Walk_State:
 		ResSpeed = MovementInfo.WalkSpeed;
-		break;
-	case EMovementState::Run_State:
-		ResSpeed = MovementInfo.RunSpeed;
-		break;
-	case EMovementState::AimWalk_State:
-		ResSpeed = MovementInfo.AimWalkSpeed;
 		break;
 	case EMovementState::Sprint_State:
 		ResSpeed = MovementInfo.SprintSpeed;
@@ -164,39 +188,25 @@ void ALastLightCharacter::CharacterUpdate()
 
 void ALastLightCharacter::ChangeMovementState()
 {
-	EMovementState NewState = EMovementState::Run_State;
+	EMovementState NewState = EMovementState::Walk_State;
 
-	if (!SprintRunEnabled && !WalkEnabled && !AimEnabled)
+	if (!SprintRunEnabled && !CrouchEnabled)
 	{
-		NewState = EMovementState::Run_State;
+		NewState = EMovementState::Walk_State;
 	}
 	else
 	{
-		if (SprintRunEnabled)
+		if (SprintRunEnabled && !GetMovementComponent()->IsFalling())
 		{
 			NewState = EMovementState::Sprint_State;
 			WalkEnabled = false;
-			AimEnabled = false;
+			CrouchEnabled = false;
 		}
 		else
 		{
-			if (!SprintRunEnabled && WalkEnabled && AimEnabled)
+			if (!SprintRunEnabled && CrouchEnabled)
 			{
-				NewState = EMovementState::AimWalk_State;
-			}
-			else
-			{
-				if (!SprintRunEnabled && WalkEnabled && !AimEnabled)
-				{
-					NewState = EMovementState::Walk_State;
-				}
-				else
-				{
-					if (!SprintRunEnabled && !WalkEnabled && AimEnabled)
-					{
-						NewState = EMovementState::Aim_State;
-					}
-				}
+				NewState = EMovementState::Crouch_State;
 			}
 		}
 	}
@@ -226,6 +236,21 @@ EMovementState ALastLightCharacter::GetMovementState()
 	return MovementState;
 }
 
+bool ALastLightCharacter::GetSprintRunEnabled()
+{
+	return SprintRunEnabled;
+}
+
+bool ALastLightCharacter::GetCrouchEnabled()
+{
+	return CrouchEnabled;
+}
+
+bool ALastLightCharacter::GetADSEnabled()
+{
+	return ADSEnabled;
+}
+
 void ALastLightCharacter::MovementTick()
 {
 	FHitResult HitResult;
@@ -236,19 +261,11 @@ void ALastLightCharacter::MovementTick()
 		bool bIsReduceDispersion = false;
 		switch (MovementState)
 		{
-		case EMovementState::Aim_State:
-			Displacement = FVector(0.0f, 0.0f, 160.0f);
-			bIsReduceDispersion = true;
-			break;
-		case EMovementState::AimWalk_State:
-			Displacement = FVector(0.0f, 0.0f, 160.0f);
-			bIsReduceDispersion = true;
-			break;
 		case EMovementState::Walk_State:
 			Displacement = FVector(0.0f, 0.0f, 120.0f);
 			break;
-		case EMovementState::Run_State:
-			Displacement = FVector(0.0f, 0.0f, 120.0f);
+		case EMovementState::Crouch_State:
+			Displacement = FVector(0.0f, 0.0f, 60.0f);
 			break;
 		case EMovementState::Sprint_State:
 			break;
@@ -274,10 +291,38 @@ void ALastLightCharacter::AttackCharEvent(bool bIsFiring)
 	}
 }
 
+void ALastLightCharacter::CrouchCharEvent(bool bIsCrouching)
+{
+	CrouchEnabled = bIsCrouching;
+	if (CrouchEnabled)
+	{
+		Crouch();
+	}
+	else
+	{
+		UnCrouch();
+	}
+}
+
+void ALastLightCharacter::JumpCharEvent(bool bIsJumping)
+{
+	SprintRunEnabled = false;
+	CrouchEnabled = false;
+	if (bIsJumping)
+	{
+		Jump();
+	}
+	else
+	{
+		StopJumping();
+	}
+}
+
 void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 {//FName WeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo
 	ULastLightGameInstance* myGI = Cast<ULastLightGameInstance>(GetGameInstance());
 	FWeaponInfo myWeaponInfo;
+	FVector EndRotationLocation = Camera->GetComponentLocation() + Camera->GetForwardVector() * 1000.0f;
 
 	if (myGI)
 	{
@@ -296,11 +341,10 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 				AWeaponDefault* myWeapon = Cast<AWeaponDefault>(GetWorld()->SpawnActor(myWeaponInfo.WeaponClass, &SpawnLocation, &SpawnRotation, SpawnParams));
 				if (myWeapon)
 				{
-					const FTransform& PlacementTransform = myWeapon->PlacementTransform * GetMesh()->GetSocketTransform(FName("WeaponSocketRightHand"));
-					myWeapon->SetActorTransform(PlacementTransform, false, nullptr, ETeleportType::TeleportPhysics);
-					myWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepWorldTransform, FName("WeaponSocketRightHand"));
+					FAttachmentTransformRules Rule(EAttachmentRule::SnapToTarget, false);
+					myWeapon->AttachToComponent(GetMesh(), Rule, FName("WeaponSocketRightHand"));
 					CurrentWeapon = myWeapon;
-
+					
 					//myWeapon->IdWeaponName = WeaponName;
 					
 					myWeapon->WeaponSetting = myWeaponInfo;
@@ -391,6 +435,7 @@ void ALastLightCharacter::MoveRight(float Value)
 {
 	if (Value != 0.0f)
 	{
+		MoveRightValue = Value;
 		// add movement in that direction
 		AddMovementInput(GetActorRightVector(), Value);
 	}

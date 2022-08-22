@@ -15,10 +15,11 @@ class LASTLIGHT_API UTypes : public UBlueprintFunctionLibrary
 UENUM(BlueprintType)
 enum class EMovementState : uint8
 {
-	Aim_State UMETA(DisplayName = "Aim State"),
-	AimWalk_State UMETA(DisplayName = "AimWalk State"),
+	//Aim_State UMETA(DisplayName = "Aim State"),
+	//AimWalk_State UMETA(DisplayName = "AimWalk State"),
 	Walk_State UMETA(DisplayName = "Walk State"),
-	Run_State UMETA(DisplayName = "Run State"),
+	Crouch_State UMETA(DisplayName = "Crouch State"),
+	//Run_State UMETA(DisplayName = "Run State"),
 	Sprint_State UMETA(DisplayName = "Sprint State"),
 };
 
@@ -27,16 +28,18 @@ struct FCharacterSpeed
 {
 	GENERATED_BODY()
 
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float AimSpeed = 300.0f;*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-		float AimSpeed = 300.0f;
+		float WalkSpeed = 300.0f;
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float AimWalkSpeed = 100.0f;*/
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float RunSpeed = 600.0f;*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-		float WalkSpeed = 200.0f;
+		float CrouchSpeed = 150.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-		float AimWalkSpeed = 100.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-		float RunSpeed = 600.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-		float SprintSpeed = 800.0f;
+		float SprintSpeed = 600.0f;
 };
 
 USTRUCT(BlueprintType)
@@ -65,7 +68,7 @@ UENUM(BlueprintType)
 enum class EWeaponType : uint8
 {
 	RifleType UMETA(DisplayName = "Rifle"),
-	LaserGunType UMETA(DisplayName = "LaserGun")
+	LaserGunType UMETA(DisplayName = "LaserGun"),
 };
 
 USTRUCT(BlueprintType)
@@ -109,23 +112,23 @@ struct FWeaponDispersion
 {
 	GENERATED_BODY()
 
-		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Aim_StateDispersionAimMax = 2.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Aim_StateDispersionAimMin = 0.3f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Aim_StateDispersionAimRecoil = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
-		float Aim_StateDispersionReduction = 0.3f;
+		float Aim_StateDispersionReduction = 0.3f;*/
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float AimWalk_StateDispersionAimMax = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float AimWalk_StateDispersionAimMin = 0.1f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float AimWalk_StateDispersionAimRecoil = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
-		float AimWalk_StateDispersionReduction = 0.4f;
+		float AimWalk_StateDispersionReduction = 0.4f;*/
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Walk_StateDispersionAimMax = 5.0f;
@@ -137,13 +140,22 @@ struct FWeaponDispersion
 		float Walk_StateDispersionReduction = 0.2f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
+		float Crouch_StateDispersionAimMax = 2.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
+		float Crouch_StateDispersionAimMin = 0.3;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
+		float Crouch_StateDispersionAimRecoil = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
+		float Crouch_StateDispersionAimReduction = 0.3f;
+
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Run_StateDispersionAimMax = 10.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Run_StateDispersionAimMin = 4.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
 		float Run_StateDispersionAimRecoil = 1.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispersion")
-		float Run_StateDispersionReduction = 0.1f;
+		float Run_StateDispersionReduction = 0.1f;*/
 
 };
 
@@ -196,20 +208,4 @@ struct FAdditionalWeaponInfo
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Stats")
 		int32 Round = 0;
-};
-
-USTRUCT(BlueprintType)
-struct FIKProperties
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		class UAnimSequence* AnimPose;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		float AimOffset = 15.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		FTransform CustomOffsetTransform;
-
 };

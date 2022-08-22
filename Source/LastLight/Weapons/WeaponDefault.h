@@ -40,10 +40,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Info")
 		FAdditionalWeaponInfo AdditionalWeaponInfo;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurations")
-		FIKProperties IKProperties;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurations")
-		FTransform PlacementTransform;
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurations")
+		FTransform PlacementTransform;*/
 
 		float FireTimer = 0.0f;
 	UPROPERTY(EditAnyWhere, BlueprintReadWrite, Category = "Reload Logic")

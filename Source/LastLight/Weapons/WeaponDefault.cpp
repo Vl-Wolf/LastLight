@@ -74,40 +74,8 @@ FProjectileInfo AWeaponDefault::GetProjectile()
 FVector AWeaponDefault::GetFireEndLocation() const
 {
 	bool bShootDirection = false;
-	FVector EndLocation = FVector(0.0f);
-
 	FVector ForwardVector = ShootLocation->GetForwardVector();
-	EndLocation = ShootLocation->GetComponentLocation() + ShootLocation->GetForwardVector();
-
-	//FVector tmpV = (ShootLocation->GetComponentLocation() - ShootEndLocation);
-
-	/*if (tmpV.Size() > SizeVectorToChangeShootDirectionLogic)
-	{
-		EndLocation = ShootLocation->GetComponentLocation() + ApplyDispersionToShoot((ShootLocation->GetComponentLocation() - ShootEndLocation).GetSafeNormal()) * -20000.0f;
-		if (ShowDebug)
-		{
-			DrawDebugCone(GetWorld(), ShootLocation->GetComponentLocation(), -(ShootLocation->GetComponentLocation() - ShootEndLocation), WeaponSetting.DistanceTrace, GetCurrentDispersion() * PI / 180.0f, GetCurrentDispersion() * PI / 180.0f, 32, FColor::Emerald, false, 0.1f, (uint8)'\000', 1.0f);
-		}
-	}*/
-	/*else
-	{
-		EndLocation = ShootLocation->GetComponentLocation() + ApplyDispersionToShoot(ShootLocation->GetForwardVector()) * 20000.0f;
-		if (ShowDebug)
-		{
-			DrawDebugCone(GetWorld(), ShootLocation->GetComponentLocation(), ShootLocation->GetForwardVector(), WeaponSetting.DistanceTrace, GetCurrentDispersion() * PI / 180.0f, GetCurrentDispersion() * PI / 180.0f, 32, FColor::Emerald, false, 0.1f, (uint8)'\000', 1.0f);
-		}
-	}*/
-
-	if (ShowDebug)
-	{
-		//direction weapon look
-		///DrawDebugLine(GetWorld(), ShootLocation->GetComponentLocation(), ShootLocation->GetComponentLocation() + ShootLocation->GetForwardVector() * 500.0f, FColor::Cyan, false, 5.0f, (uint8)'\000', 0.5f);
-		//direction projectile must fly
-		///DrawDebugLine(GetWorld(), ShootLocation->GetComponentLocation(), ShootEndLocation, FColor::Red, false, 5.0f, (uint8)'\000', 0.5f);
-		//direction projectile current fly
-		///DrawDebugLine(GetWorld(), ShootLocation->GetComponentLocation(), EndLocation, FColor::Black, false, 5.0f, (uint8)'\000', 0.5f);
-
-	}
+	FVector EndLocation = ShootLocation->GetComponentLocation() + ForwardVector * 1000.0f;
 
 	return EndLocation;
 }
@@ -213,19 +181,12 @@ void AWeaponDefault::UpdateStateWeapon(EMovementState NewMovementState)
 
 	switch (NewMovementState)
 	{
-	case EMovementState::Aim_State:
-		WeaponAiming = true;
-		CurrentDispersionMax = WeaponSetting.DispersionWeapon.Aim_StateDispersionAimMax;
-		CurrentDispersionMin = WeaponSetting.DispersionWeapon.Aim_StateDispersionAimMin;
-		CurrentDispersionRecoil = WeaponSetting.DispersionWeapon.Aim_StateDispersionAimRecoil;
-		CurrentDispersionReduction = WeaponSetting.DispersionWeapon.Aim_StateDispersionReduction;
-		break;
-	case EMovementState::AimWalk_State:
-		WeaponAiming = true;
-		CurrentDispersionMax = WeaponSetting.DispersionWeapon.AimWalk_StateDispersionAimMax;
-		CurrentDispersionMin = WeaponSetting.DispersionWeapon.AimWalk_StateDispersionAimMin;
-		CurrentDispersionRecoil = WeaponSetting.DispersionWeapon.AimWalk_StateDispersionAimRecoil;
-		CurrentDispersionReduction = WeaponSetting.DispersionWeapon.AimWalk_StateDispersionReduction;
+	case EMovementState::Crouch_State:
+		WeaponAiming = false;
+		CurrentDispersionMax = WeaponSetting.DispersionWeapon.Crouch_StateDispersionAimMax;
+		CurrentDispersionMin = WeaponSetting.DispersionWeapon.Crouch_StateDispersionAimMin;
+		CurrentDispersionRecoil = WeaponSetting.DispersionWeapon.Crouch_StateDispersionAimRecoil;
+		CurrentDispersionReduction = WeaponSetting.DispersionWeapon.Crouch_StateDispersionAimReduction;
 		break;
 	case EMovementState::Walk_State:
 		WeaponAiming = false;
@@ -233,13 +194,6 @@ void AWeaponDefault::UpdateStateWeapon(EMovementState NewMovementState)
 		CurrentDispersionMin = WeaponSetting.DispersionWeapon.Walk_StateDispersionAimMin;
 		CurrentDispersionRecoil = WeaponSetting.DispersionWeapon.Walk_StateDispersionAimRecoil;
 		CurrentDispersionReduction = WeaponSetting.DispersionWeapon.Walk_StateDispersionReduction;
-		break;
-	case EMovementState::Run_State:
-		WeaponAiming = false;
-		CurrentDispersionMax = WeaponSetting.DispersionWeapon.Run_StateDispersionAimMax;
-		CurrentDispersionMin = WeaponSetting.DispersionWeapon.Run_StateDispersionAimMin;
-		CurrentDispersionRecoil = WeaponSetting.DispersionWeapon.Run_StateDispersionAimRecoil;
-		CurrentDispersionReduction = WeaponSetting.DispersionWeapon.Run_StateDispersionReduction;
 		break;
 	case EMovementState::Sprint_State:
 		WeaponAiming = false;
@@ -320,7 +274,7 @@ void AWeaponDefault::WeaponInit()
 		StaticMeshWeapon->DestroyComponent(true);
 	}
 
-	UpdateStateWeapon(EMovementState::Run_State);
+	UpdateStateWeapon(EMovementState::Walk_State);
 }
 
 void AWeaponDefault::Fire()
@@ -357,84 +311,35 @@ void AWeaponDefault::Fire()
 		FProjectileInfo ProjectileInfo;
 		ProjectileInfo = GetProjectile();
 		FVector EndLocation;
+		EndLocation = GetFireEndLocation();
 
-		for (int8 i = 0; i < NumberProjectile; i++)
+		if (ProjectileInfo.Projectile)
 		{
-			EndLocation = GetFireEndLocation();
+			/*FVector Dir = EndLocation - SpawnLocation;
+			Dir.Normalize();
+			FMatrix myMatrix(Dir, FVector(0, 1, 0), FVector(0, 0, 1), FVector::ZeroVector);
+			SpawnRotation = myMatrix.Rotator();*/
 
-			if (ProjectileInfo.Projectile)
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			SpawnParams.Owner = GetOwner();
+			SpawnParams.Instigator = GetInstigator();
+
+			AProjectile* myProjectile = Cast<AProjectile>(GetWorld()->SpawnActor(ProjectileInfo.Projectile, &SpawnLocation, &SpawnRotation, SpawnParams));
+			if (myProjectile)
 			{
-				FVector Dir = EndLocation - SpawnLocation;
-				Dir.Normalize();
-				FMatrix myMatrix(Dir, FVector(0, 1, 0), FVector(0, 0, 1), FVector::ZeroVector);
-				SpawnRotation = myMatrix.Rotator();
-
-				FActorSpawnParameters SpawnParams;
-				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-				SpawnParams.Owner = GetOwner();
-				SpawnParams.Instigator = GetInstigator();
-
-				AProjectile* myProjectile = Cast<AProjectile>(GetWorld()->SpawnActor(ProjectileInfo.Projectile, &SpawnLocation, &SpawnRotation, SpawnParams));
-				if (myProjectile)
-				{
-					myProjectile->InitProjectile(WeaponSetting.ProjectileSetting);
-				}
-
-			}
-			else
-			{
-				FHitResult Hit;
-				TArray<AActor*> Actors;
-
-				EDrawDebugTrace::Type DebugTrace;
-				if (ShowDebug)
-				{
-					DrawDebugLine(GetWorld(), SpawnLocation, EndLocation * WeaponSetting.DistanceTrace,
-						FColor::Black, false, 5.0f, (uint8)'\000', 0.5f);
-					DebugTrace = EDrawDebugTrace::ForDuration;
-				}
-				else
-				{
-					DebugTrace = EDrawDebugTrace::None;
-				}
-
-				UKismetSystemLibrary::LineTraceSingle(GetWorld(), SpawnLocation, EndLocation * WeaponSetting.DistanceTrace,
-					ETraceTypeQuery::TraceTypeQuery4, false, Actors, EDrawDebugTrace::ForDuration,
-					Hit, true, FLinearColor::Red, FLinearColor::Green, 5.0f);
-
-				/*if (Hit.GetActor() && Hit.PhysMaterial.IsValid())
-				{
-					EPhysicalSurface mySurfaceType = UGameplayStatics::GetSurfaceType(Hit);
-
-					if (WeaponSetting.ProjectileSetting.HitDecals.Contains(mySurfaceType))
-					{
-						UMaterialInterface* myMaterial = WeaponSetting.ProjectileSetting.HitDecals[mySurfaceType];
-
-						if (myMaterial && Hit.GetComponent())
-						{
-							SpawnTraceHitDecal(myMaterial, Hit);
-						}
-					}
-
-					if (WeaponSetting.ProjectileSetting.HitFXs.Contains(mySurfaceType))
-					{
-						UParticleSystem* myParticle = WeaponSetting.ProjectileSetting.HitFXs[mySurfaceType];
-
-						if (myParticle)
-						{
-							SpawnTraceHitFX(myParticle, Hit);
-						}
-					}
-
-					if (WeaponSetting.ProjectileSetting.HitSound)
-					{
-						SpawnTraceHitSound(WeaponSetting.ProjectileSetting.HitSound, Hit);
-					}
-
-					UGameplayStatics::ApplyPointDamage(Hit.GetActor(), WeaponSetting.ProjectileSetting.ProjectileDamage, Hit.TraceStart, Hit, GetInstigatorController(), this, NULL);
-				}*/
+				myProjectile->InitProjectile(WeaponSetting.ProjectileSetting);
 			}
 
+		}
+		else
+		{
+			FHitResult Hit;
+			TArray<AActor*> Actors;
+
+			UKismetSystemLibrary::LineTraceSingle(GetWorld(), SpawnLocation, EndLocation,
+				ETraceTypeQuery::TraceTypeQuery4, false, Actors, EDrawDebugTrace::ForDuration,
+				Hit, true, FLinearColor::Red, FLinearColor::Green, 40.0f);
 
 		}
 	}
