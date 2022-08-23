@@ -48,6 +48,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		float MoveRightValue;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float TurnValue;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float LookValue;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 		FCharacterSpeed MovementInfo;
@@ -81,6 +85,9 @@ public:
 		void WeaponReloadStart_BP(UAnimMontage* Anim);
 	UFUNCTION(BlueprintNativeEvent)
 		void WeaponReloadEnd_BP(bool bIsSuccess);
+
+	UFUNCTION(BlueprintNativeEvent)
+		void ToggleADS_BP(bool toggle);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 		AWeaponDefault* GetCurrentWeapon();
@@ -119,6 +126,9 @@ protected:
 	/** Handles stafing movement, left and right */
 	void MoveRight(float Val);
 
+	void Turn(float Val);
+	void LookUp(float Val);
+
 	void InputSprintPressed();
 	void InputSprintReleased();
 
@@ -128,8 +138,10 @@ protected:
 	void InputJumpPressed();
 	void InputJumpReleased();
 
-	//void InputAimPressed();
-	//void InputAimReleased();
+	void InputAimPressed();
+	void InputAimReleased();
+	
+	
 
 	void InputAttackPressed();
 	void InputAttackReleased();

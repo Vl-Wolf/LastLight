@@ -78,8 +78,8 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAxis("MoveForward", this, &ALastLightCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ALastLightCharacter::MoveRight);
 
-	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
-	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+	PlayerInputComponent->BindAxis("Turn", this, &ALastLightCharacter::Turn);
+	PlayerInputComponent->BindAxis("LookUp", this, &ALastLightCharacter::LookUp);
 
 
 	PlayerInputComponent->BindAction("ChangeToSprint", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputSprintPressed);
@@ -88,8 +88,8 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("ChangeToWalk", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputWalkPressed);
 	PlayerInputComponent->BindAction("ChangeToWalk", EInputEvent::IE_Released, this, &ALastLightCharacter::InputWalkReleased);
 
-	//PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputAimPressed);
-	//PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Released, this, &ALastLightCharacter::InputAimReleased);
+	PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputAimPressed);
+	PlayerInputComponent->BindAction("AimEvent", EInputEvent::IE_Released, this, &ALastLightCharacter::InputAimReleased);
 
 	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputCrouchPressed);
 	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Released, this, &ALastLightCharacter::InputCrouchReleased);
@@ -129,17 +129,23 @@ void ALastLightCharacter::InputJumpReleased()
 	JumpCharEvent(false);
 }
 
-//void ALastLightCharacter::InputAimPressed()
-//{
-//	AimEnabled = true;
-//	ChangeMovementState();
-//}
+void ALastLightCharacter::InputAimPressed()
+{
+	ADSEnabled = true;
+	ToggleADS_BP(true);
+	
+}
 
-//void ALastLightCharacter::InputAimReleased()
-//{
-//	AimEnabled = false;
-//	ChangeMovementState();
-//}
+void ALastLightCharacter::InputAimReleased()
+{
+	ADSEnabled = false;
+	ToggleADS_BP(false);
+}
+
+void ALastLightCharacter::ToggleADS_BP_Implementation(bool toggle)
+{
+
+}
 
 void ALastLightCharacter::InputAttackPressed()
 {
@@ -439,4 +445,16 @@ void ALastLightCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(GetActorRightVector(), Value);
 	}
+}
+
+void ALastLightCharacter::Turn(float Val)
+{
+	TurnValue = Val;
+	AddControllerYawInput(Val);
+}
+
+void ALastLightCharacter::LookUp(float Val)
+{
+	LookValue = Val;
+	AddControllerPitchInput(Val);
 }
