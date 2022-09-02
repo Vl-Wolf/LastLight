@@ -6,7 +6,7 @@
 #include "GameFramework/Character.h"
 #include "LastLight/FuncLibrary/Types.h"
 #include "LastLight/Weapons/WeaponDefault.h"
-#include "LastLight/Game/LastLightGameInstance.h"
+#include "LastLight/Character/LastLightCharHealthComponent.h"
 #include "LastLightCharacter.generated.h"
 
 class UInputComponent;
@@ -29,10 +29,16 @@ public:
 		class UCameraComponent* Camera;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-		class USkeletalMeshComponent* CharacterHead;
+		USkeletalMeshComponent* CharacterHead;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+		ULastLightCharHealthComponent* HealthComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
+		TArray<UAnimMontage*> DeadsAnim;
 
 protected:
-	virtual void BeginPlay();
+	virtual void BeginPlay() override;
 
 public:
 
@@ -91,8 +97,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 		AWeaponDefault* GetCurrentWeapon();
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-		EMovementState GetMovementState();
+	/*UFUNCTION(BlueprintCallable, BlueprintPure)
+		EMovementState GetMovementState();*/
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 		bool GetSprintRunEnabled();
@@ -101,6 +107,15 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 		bool GetADSEnabled();
 
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+		bool GetIsAlive();
+	UFUNCTION(BlueprintNativeEvent)
+		void CharacterDead_BP();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void PlayAnim_Multicast(UAnimMontage* Anim);
+
+	FTimerHandle TimerHandle_RadDollTimer;
 
 private:
 
@@ -140,8 +155,6 @@ protected:
 
 	void InputAimPressed();
 	void InputAimReleased();
-	
-	
 
 	void InputAttackPressed();
 	void InputAttackReleased();
@@ -155,5 +168,12 @@ protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
 	// End of APawn interface
+
+	UFUNCTION()
+		void CharacterDead();
+	UFUNCTION(NetMulticast, Reliable)
+	void EnableRagdoll_Multicast();
+
+	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 };
 

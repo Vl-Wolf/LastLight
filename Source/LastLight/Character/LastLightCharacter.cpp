@@ -8,14 +8,9 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
-#include "Kismet/KismetMathLibrary.h"
-#include "Kismet/KismetSystemLibrary.h"
-#include "XRMotionControllerBase.h" // for FXRMotionControllerBase::RightHandSourceId
-
-DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
+#include "LastLight/Game/LastLightGameInstance.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ALastLightCharacter
@@ -39,6 +34,10 @@ ALastLightCharacter::ALastLightCharacter()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 	Camera->SetupAttachment(GetMesh(), FName("head"));
 	Camera->bUsePawnControlRotation = true;
+
+	HealthComponent = CreateDefaultSubobject<ULastLightCharHealthComponent>(TEXT("HealthComponent"));
+	if(HealthComponent)
+		HealthComponent->OnDead.AddDynamic(this, &ALastLightCharacter::CharacterDead);
 }
 
 void ALastLightCharacter::BeginPlay()
@@ -95,10 +94,85 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Released, this, &ALastLightCharacter::InputCrouchReleased);
 }
 
+void ALastLightCharacter::CharacterDead()
+{
+	CharacterDead_BP();
+
+	float TimeAnim = 0.0f;
+	int32 rnd = FMath::RandHelper(DeadsAnim.Num());
+
+	if(DeadsAnim.IsValidIndex(rnd) && DeadsAnim[rnd] && GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		TimeAnim = DeadsAnim[rnd]->GetPlayLength();
+		PlayAnim_Multicast(DeadsAnim[rnd]);
+	}
+
+	if(GetController())
+	{
+		GetController()->UnPossess();
+	}
+
+	float DecraeseAnimTimer = FMath::FRandRange(0.2f,1.0f);
+
+	GetWorldTimerManager().SetTimer(TimerHandle_RadDollTimer, this, &ALastLightCharacter::EnableRagdoll_Multicast, TimeAnim - DecraeseAnimTimer, false);
+
+	SetLifeSpan(20.f);
+	if(GetCurrentWeapon())
+	{
+		GetCurrentWeapon()->SetLifeSpan(20.0f);
+	}
+	else
+	{
+		AttackCharEvent(false);
+	}
+
+	if(GetCapsuleComponent())
+	{
+		GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	}
+	
+}
+
+float ALastLightCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if(HealthComponent && HealthComponent->GetIsAlive())
+	{
+		HealthComponent->ChangeHealthValue_OnServer(-DamageAmount);
+	}
+
+	/*if(DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+	{
+		AProjectile* myProjectile = Cast<AProjectile>(DamageCauser);
+		if(myProjectile)
+		{		}
+	}*/
+
+
+	return ActualDamage;
+}
+
+void ALastLightCharacter::EnableRagdoll_Multicast_Implementation()
+{
+	if(GetMesh())
+	{
+		GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
+		GetMesh()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+		GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+		GetMesh()->SetSimulatePhysics(true);
+	}
+}
+
 void ALastLightCharacter::InputSprintPressed()
 {
-	SprintRunEnabled = true;
-	ChangeMovementState();
+	if (!GetMovementComponent()->IsFalling())
+	{
+		SprintRunEnabled = true;
+		ChangeMovementState();
+	}
+	
 }
 
 void ALastLightCharacter::InputSprintReleased()
@@ -144,7 +218,7 @@ void ALastLightCharacter::InputAimReleased()
 
 void ALastLightCharacter::ToggleADS_BP_Implementation(bool toggle)
 {
-
+	//In Blueprint
 }
 
 void ALastLightCharacter::InputAttackPressed()
@@ -237,10 +311,10 @@ AWeaponDefault* ALastLightCharacter::GetCurrentWeapon()
 	return CurrentWeapon;
 }
 
-EMovementState ALastLightCharacter::GetMovementState()
+/*EMovementState ALastLightCharacter::GetMovementState()
 {
 	return MovementState;
-}
+}*/
 
 bool ALastLightCharacter::GetSprintRunEnabled()
 {
@@ -255,6 +329,30 @@ bool ALastLightCharacter::GetCrouchEnabled()
 bool ALastLightCharacter::GetADSEnabled()
 {
 	return ADSEnabled;
+}
+
+bool ALastLightCharacter::GetIsAlive()
+{
+	bool result = false;
+	if(HealthComponent)
+	{
+		result = HealthComponent->GetIsAlive();
+	}
+
+	return result;
+}
+
+void ALastLightCharacter::PlayAnim_Multicast_Implementation(UAnimMontage* Anim)
+{
+	if(GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(Anim);
+	}
+}
+
+void ALastLightCharacter::CharacterDead_BP_Implementation()
+{
+	//In Blueprint
 }
 
 void ALastLightCharacter::MovementTick()
@@ -285,7 +383,7 @@ void ALastLightCharacter::MovementTick()
 
 void ALastLightCharacter::AttackCharEvent(bool bIsFiring)
 {
-	AWeaponDefault* myWeapon = nullptr;
+	AWeaponDefault* myWeapon;
 	myWeapon = GetCurrentWeapon();
 	if (myWeapon)
 	{
@@ -328,8 +426,6 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 {//FName WeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo
 	ULastLightGameInstance* myGI = Cast<ULastLightGameInstance>(GetGameInstance());
 	FWeaponInfo myWeaponInfo;
-	FVector EndRotationLocation = Camera->GetComponentLocation() + Camera->GetForwardVector() * 1000.0f;
-
 	if (myGI)
 	{
 		if (myGI->GetWeaponInfoByName(IdWeaponName, myWeaponInfo))

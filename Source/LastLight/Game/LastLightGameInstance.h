@@ -6,7 +6,6 @@
 #include "Engine/GameInstance.h"
 #include "Engine/DataTable.h"
 #include "LastLight/FuncLibrary/Types.h"
-#include "LastLight/Weapons/WeaponDefault.h"
 #include "LastLightGameInstance.generated.h"
 
 /**
