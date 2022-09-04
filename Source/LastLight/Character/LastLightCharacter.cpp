@@ -10,6 +10,7 @@
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "LastLight/Game/LastLightGameInstance.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -38,14 +39,21 @@ ALastLightCharacter::ALastLightCharacter()
 	HealthComponent = CreateDefaultSubobject<ULastLightCharHealthComponent>(TEXT("HealthComponent"));
 	if(HealthComponent)
 		HealthComponent->OnDead.AddDynamic(this, &ALastLightCharacter::CharacterDead);
+
+	InventoryComponent = CreateDefaultSubobject<ULastLightInventoryComponent>(TEXT("InventoryComponent"));
+	if(InventoryComponent)
+		InventoryComponent->OnSwitchWeapon.AddDynamic(this, &ALastLightCharacter::InitWeapon);
+
+	bReplicates = true;
 }
+
 
 void ALastLightCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
 
-	InitWeapon(InitWeaponName);
+	//InitWeapon(InitWeaponName);
 	
 	GetCharacterMovement()->MaxWalkSpeed = MovementInfo.WalkSpeed;
 }
@@ -92,6 +100,9 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 
 	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Pressed, this, &ALastLightCharacter::InputCrouchPressed);
 	PlayerInputComponent->BindAction("ChangeToCrouch", EInputEvent::IE_Released, this, &ALastLightCharacter::InputCrouchReleased);
+
+	PlayerInputComponent->BindAction("SwitchNextWeapon", EInputEvent::IE_Pressed, this, &ALastLightCharacter::TrySwitchNextWeapon);
+	PlayerInputComponent->BindAction("SwitchPreviosWeapon", EInputEvent::IE_Pressed, this, &ALastLightCharacter::TrySwitchPreviosWeapon);
 }
 
 void ALastLightCharacter::CharacterDead()
@@ -311,6 +322,11 @@ AWeaponDefault* ALastLightCharacter::GetCurrentWeapon()
 	return CurrentWeapon;
 }
 
+int32 ALastLightCharacter::GetCurrentWeaponIndex()
+{
+	return CurrentIndexWeapon;
+}
+
 /*EMovementState ALastLightCharacter::GetMovementState()
 {
 	return MovementState;
@@ -381,6 +397,48 @@ void ALastLightCharacter::MovementTick()
 	}
 }
 
+void ALastLightCharacter::TrySwitchNextWeapon()
+{
+	if(CurrentIndexWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.Num() > 1)
+	{
+		int8 OldIndex = CurrentIndexWeapon;
+		FAdditionalWeaponInfo OldInfo;
+		if(CurrentWeapon)
+		{
+			OldInfo = CurrentWeapon->AdditionalWeaponInfo;
+			if(CurrentWeapon->WeaponReloading)
+			{
+				CurrentWeapon->CancelReload();
+			}
+		}
+		if (InventoryComponent)
+		{
+			InventoryComponent->SwitchWeaponToIndexByNextPreviosIndex(CurrentIndexWeapon + 1, OldIndex, OldInfo, true);
+		}
+	}
+}
+
+void ALastLightCharacter::TrySwitchPreviosWeapon()
+{
+	if(CurrentIndexWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.Num() > 1)
+	{
+		int8 OldIndex = CurrentIndexWeapon;
+		FAdditionalWeaponInfo OldInfo;
+		if(CurrentWeapon)
+		{
+			OldInfo = CurrentWeapon->AdditionalWeaponInfo;
+			if(CurrentWeapon->WeaponReloading)
+			{
+				CurrentWeapon->CancelReload();
+			}
+		}
+		if (InventoryComponent)
+		{
+			InventoryComponent->SwitchWeaponToIndexByNextPreviosIndex(CurrentIndexWeapon - 1, OldIndex, OldInfo, false);
+		}
+	}
+}
+
 void ALastLightCharacter::AttackCharEvent(bool bIsFiring)
 {
 	AWeaponDefault* myWeapon;
@@ -422,8 +480,14 @@ void ALastLightCharacter::JumpCharEvent(bool bIsJumping)
 	}
 }
 
-void ALastLightCharacter::InitWeapon(FName IdWeaponName)
-{//FName WeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo
+void ALastLightCharacter::InitWeapon(FName IdWeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo, int32 NewCurrentIndexWeapon)
+{
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->Destroy();
+		CurrentWeapon = nullptr;
+	}
+	
 	ULastLightGameInstance* myGI = Cast<ULastLightGameInstance>(GetGameInstance());
 	FWeaponInfo myWeaponInfo;
 	if (myGI)
@@ -434,8 +498,8 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 			{
 				FVector SpawnLocation = FVector(0);
 				FRotator SpawnRotation = FRotator(0);
+				
 				FActorSpawnParameters SpawnParams;
-
 				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				SpawnParams.Owner = this;
 				SpawnParams.Instigator = GetInstigator();
@@ -447,12 +511,15 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 					myWeapon->AttachToComponent(GetMesh(), Rule, FName("WeaponSocketRightHand"));
 					CurrentWeapon = myWeapon;
 					
-					//myWeapon->IdWeaponName = WeaponName;
-					
+					myWeapon->IdWeaponName = IdWeaponName;
 					myWeapon->WeaponSetting = myWeaponInfo;
-					myWeapon->ReloadTimer = myWeaponInfo.ReloadTime;
-					myWeapon->AdditionalWeaponInfo.Round = myWeaponInfo.MaxRound;
 					
+					myWeapon->ReloadTimer = myWeaponInfo.ReloadTime;
+					//change _onserver
+					myWeapon->UpdateStateWeapon(MovementState);
+					myWeapon->AdditionalWeaponInfo = WeaponAdditionalInfo;
+					CurrentIndexWeapon = NewCurrentIndexWeapon;
+										
 					
 					myWeapon->OnWeaponReloadStart.AddDynamic(this, &ALastLightCharacter::WeaponReloadStart);
 					myWeapon->OnWeaponReloadEnd.AddDynamic(this, &ALastLightCharacter::WeaponReloadEnd);
@@ -461,6 +528,10 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 					if (CurrentWeapon->GetWeaponRound() <= 0 && CurrentWeapon->CheckCanWeaponReload())
 					{
 						CurrentWeapon->InitReload();
+					}
+					if(InventoryComponent)
+					{
+						InventoryComponent->OnWeaponAmmoAviable.Broadcast(myWeapon->WeaponSetting.WeaponType);
 					}
 				}
 			}
@@ -482,21 +553,55 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName)
 
 void ALastLightCharacter::TryReloadWeapon()
 {
-	if (CurrentWeapon && !CurrentWeapon->WeaponAiming)
+	if (HealthComponent && HealthComponent->GetIsAlive() && CurrentWeapon && !CurrentWeapon->WeaponAiming)
 	{
 		if (CurrentWeapon->GetWeaponRound() < CurrentWeapon->WeaponSetting.MaxRound && CurrentWeapon->CheckCanWeaponReload())
 		{
-			CurrentWeapon->InitReload();
+			TryReloadWeapon_OnServer();
+		}
+	}
+}
+
+void ALastLightCharacter::TryReloadWeapon_OnServer_Implementation()
+{
+	if(CurrentWeapon->GetWeaponRound() < CurrentWeapon->WeaponSetting.MaxRound && CurrentWeapon->CheckCanWeaponReload())
+	{
+		CurrentWeapon->InitReload();
+	}
+}
+
+void ALastLightCharacter::TrySwitchWeaponToIndexByKeyInput_OnServer_Implementation(int32 ToIndex)
+{
+	bool bIsSucces = false;
+	if(CurrentWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.IsValidIndex(ToIndex))
+	{
+		if(CurrentIndexWeapon != ToIndex && InventoryComponent)
+		{
+			int32 OldIndex = CurrentIndexWeapon;
+			FAdditionalWeaponInfo OldInfo;
+
+			if(CurrentWeapon)
+			{
+				OldInfo = CurrentWeapon->AdditionalWeaponInfo;
+				if(CurrentWeapon->WeaponReloading)
+				{
+					CurrentWeapon->CancelReload();
+				}
+			}
+
+			bIsSucces = InventoryComponent->SwitchWeaponByIndex(ToIndex, OldIndex, OldInfo);
 		}
 	}
 }
 
 void ALastLightCharacter::WeaponFire(UAnimMontage* Anim)
 {
-	if(CurrentWeapon)
+	if(InventoryComponent && CurrentWeapon)
 	{
-		WeaponFire_BP(Anim);
+		InventoryComponent->SetAdditionalInfoWeapon(CurrentIndexWeapon, CurrentWeapon->AdditionalWeaponInfo);
 	}
+
+	WeaponFire_BP(Anim);
 }
 
 void ALastLightCharacter::WeaponReloadStart(UAnimMontage* Anim)
@@ -506,6 +611,12 @@ void ALastLightCharacter::WeaponReloadStart(UAnimMontage* Anim)
 
 void ALastLightCharacter::WeaponReloadEnd(bool bIsSuccess, int32 AmmoSafe)
 {
+	if(InventoryComponent && CurrentWeapon)
+	{
+		InventoryComponent->AmmoSlotChangeValue(CurrentWeapon->WeaponSetting.WeaponType, AmmoSafe);
+		InventoryComponent->SetAdditionalInfoWeapon(CurrentIndexWeapon, CurrentWeapon->AdditionalWeaponInfo);
+	}
+		
 	WeaponReloadEnd_BP(bIsSuccess);
 }
 
@@ -553,4 +664,11 @@ void ALastLightCharacter::LookUp(float Val)
 {
 	LookValue = Val;
 	AddControllerPitchInput(Val);
+}
+
+void ALastLightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ALastLightCharacter, CurrentIndexWeapon);
 }

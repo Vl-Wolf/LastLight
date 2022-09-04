@@ -199,6 +199,13 @@ struct FWeaponInfo : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 		FAnimationWeaponInfo AnimationWeaponInfo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+		float SwitchTimeWeapon = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+		UTexture2D* WeaponIcon = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+		EWeaponType WeaponType = EWeaponType::RifleType;
 };
 
 USTRUCT(BlueprintType)
@@ -208,4 +215,29 @@ struct FAdditionalWeaponInfo
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Stats")
 		int32 Round = 0;
+};
+
+USTRUCT(BlueprintType)
+struct FWeaponSlot
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponSlot")
+		FName NameItem;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponSlot")
+		FAdditionalWeaponInfo AdditionalInfo;
+};
+
+USTRUCT(BlueprintType)
+struct FAmmoSlot
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AmmoSlot")
+		EWeaponType WeaponType = EWeaponType::RifleType;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AmmoSlot")
+		int32 Cout = 100;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AmmoSlot")
+		int32 MaxCout = 100;
+	
 };

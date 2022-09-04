@@ -7,6 +7,7 @@
 #include "LastLight/FuncLibrary/Types.h"
 #include "LastLight/Weapons/WeaponDefault.h"
 #include "LastLight/Character/LastLightCharHealthComponent.h"
+#include "LastLight/Character/LastLightInventoryComponent.h"
 #include "LastLightCharacter.generated.h"
 
 class UInputComponent;
@@ -31,13 +32,17 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 		USkeletalMeshComponent* CharacterHead;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 		ULastLightCharHealthComponent* HealthComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
 		TArray<UAnimMontage*> DeadsAnim;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+		ULastLightInventoryComponent* InventoryComponent;
+
 protected:
+	
 	virtual void BeginPlay() override;
 
 public:
@@ -61,8 +66,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 		FCharacterSpeed MovementInfo;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponDEMO")
-		FName InitWeaponName;
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponDEMO")
+		FName InitWeaponName;*/
 
 
 	void CharacterUpdate();
@@ -73,10 +78,14 @@ public:
 	void CrouchCharEvent(bool bIsCrouching);
 	void JumpCharEvent(bool bIsJumping);
 
-	UFUNCTION(BlueprintCallable)
-		//FName WeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo
-		void InitWeapon(FName IdWeaponName);
+	UFUNCTION()
+		void InitWeapon(FName IdWeaponName, FAdditionalWeaponInfo WeaponAdditionalInfo, int32 NewCurrentIndexWeapon);
 	void TryReloadWeapon();
+	UFUNCTION(Server, Reliable)
+		void TryReloadWeapon_OnServer();
+
+	UFUNCTION(Server, Reliable)
+		void TrySwitchWeaponToIndexByKeyInput_OnServer(int32 ToIndex);
 
 	UFUNCTION()
 		void WeaponFire(UAnimMontage* Anim);
@@ -97,6 +106,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 		AWeaponDefault* GetCurrentWeapon();
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+		int32 GetCurrentWeaponIndex();
 	/*UFUNCTION(BlueprintCallable, BlueprintPure)
 		EMovementState GetMovementState();*/
 
@@ -163,6 +174,9 @@ protected:
 	void InputCrouchReleased();
 
 	void MovementTick();
+
+	void TrySwitchNextWeapon();
+	void TrySwitchPreviosWeapon();
 	
 protected:
 	// APawn interface
@@ -172,7 +186,10 @@ protected:
 	UFUNCTION()
 		void CharacterDead();
 	UFUNCTION(NetMulticast, Reliable)
-	void EnableRagdoll_Multicast();
+		void EnableRagdoll_Multicast();
+
+	UPROPERTY(Replicated)
+		int32 CurrentIndexWeapon = 0;
 
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 };
