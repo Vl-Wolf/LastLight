@@ -7,6 +7,7 @@
 #include "LastLight/FuncLibrary/Types.h"
 #include "Components/ArrowComponent.h"
 #include "LastLight/Weapons/Projectiles/Projectile.h"
+
 #include "WeaponDefault.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponReloadStart, UAnimMontage*, AnimReloadStart);
@@ -37,7 +38,7 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 		FWeaponInfo WeaponSetting;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Info")
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Weapon Info")
 		FAdditionalWeaponInfo AdditionalWeaponInfo;
 
 	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurations")
@@ -52,12 +53,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire Logic")
 		bool WeaponFiring = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reload  Logic")
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Reload  Logic")
 		bool WeaponReloading = false;
 	bool WeaponAiming = false;
 	bool BlockFire = false;
 
-	FVector ShootEndLocation = FVector(0);
+	UPROPERTY(Replicated)
+		FVector ShootEndLocation = FVector(0);
 
 protected:
 	// Called when the game starts or when spawned
@@ -76,8 +78,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	UFUNCTION()
-		void SetWeaponStateFire(bool bIsFire);
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+		void SetWeaponStateFire_OnServer(bool bIsFire);
 
 	bool CheckWeaponCanFire();
 
@@ -101,12 +103,14 @@ public:
 	bool CheckCanWeaponReload();
 	int8 GetAviableAmmoForReload();
 
-	void UpdateStateWeapon(EMovementState NewMovementState);
+	UFUNCTION(Server, Reliable)
+	void UpdateStateWeapon_OnServer(EMovementState NewMovementState);
 	void ChangeDispersionByShoot();
 	float GetCurrentDispersion() const;
 	FVector ApplyDispersionToShoot(FVector DirectionShoot) const;
 
-	void UpdateWeaponCharacterMovementState(FVector NewShootEndLocation, bool NewShouldReduceDispersion);
+	UFUNCTION(Server, Unreliable)
+		void UpdateWeaponCharacterMovementState_OnServer(FVector NewShootEndLocation, bool NewShouldReduceDispersion);
 
 	//Dispersion
 	bool ShouldReduceDeispersion = false;
@@ -116,15 +120,15 @@ public:
 	float CurrentDispersionRecoil = 0.1f;
 	float CurrentDispersionReduction = 0.1f;
 
-	UFUNCTION()
-		void AnimWeaponStart(UAnimMontage* Anim);
-	UFUNCTION()
-		void FXWeaponFire(UParticleSystem* FXFire, USoundBase* SoundFire);
-	UFUNCTION()
-		void SpawnTraceHitDecal(UMaterialInterface* DecalMaterial, FHitResult HitResult);
-	UFUNCTION()
-		void SpawnTraceHitFX(UParticleSystem* FXTemplate, FHitResult HitResult);
-	UFUNCTION()
-		void SpawnTraceHitSound(USoundBase* HitSound, FHitResult HitResult);
+	UFUNCTION(NetMulticast, Unreliable)
+		void AnimWeaponStart_Multicast(UAnimMontage* Anim);
+	UFUNCTION(NetMulticast, Unreliable)
+		void FXWeaponFire_Multicast(UParticleSystem* FXFire, USoundBase* SoundFire);
+	UFUNCTION(NetMulticast, Reliable)
+		void SpawnTraceHitDecal_Multicast(UMaterialInterface* DecalMaterial, FHitResult HitResult);
+	UFUNCTION(NetMulticast, Reliable)
+		void SpawnTraceHitFX_Multicast(UParticleSystem* FXTemplate, FHitResult HitResult);
+	UFUNCTION(NetMulticast, Reliable)
+		void SpawnTraceHitSound_Multicast(USoundBase* HitSound, FHitResult HitResult);
 
 };

@@ -72,7 +72,10 @@ public:
 
 	void CharacterUpdate();
 	void ChangeMovementState();
-	void SetMovementState(EMovementState NewState);
+	UFUNCTION(Server, Reliable)
+		void SetMovementState_OnServer(EMovementState NewState);
+	UFUNCTION(NetMulticast, Reliable)
+		void SetMovementState_Multicast(EMovementState NewState);
 	
 	void AttackCharEvent(bool bIsFiring);
 	void CrouchCharEvent(bool bIsCrouching);
@@ -137,10 +140,10 @@ private:
 	bool CrouchEnabled = false;
 	bool ADSEnabled = false;
 
+	UPROPERTY(Replicated)
+		EMovementState MovementState = EMovementState::Walk_State;
 
-	EMovementState MovementState = EMovementState::Walk_State;
-
-	UPROPERTY()
+	UPROPERTY(Replicated)
 		AWeaponDefault* CurrentWeapon = nullptr;
 	
 

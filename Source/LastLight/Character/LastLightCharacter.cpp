@@ -104,78 +104,6 @@ void ALastLightCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("SwitchNextWeapon", EInputEvent::IE_Pressed, this, &ALastLightCharacter::TrySwitchNextWeapon);
 	PlayerInputComponent->BindAction("SwitchPreviosWeapon", EInputEvent::IE_Pressed, this, &ALastLightCharacter::TrySwitchPreviosWeapon);
 }
-
-void ALastLightCharacter::CharacterDead()
-{
-	CharacterDead_BP();
-
-	float TimeAnim = 0.0f;
-	int32 rnd = FMath::RandHelper(DeadsAnim.Num());
-
-	if(DeadsAnim.IsValidIndex(rnd) && DeadsAnim[rnd] && GetMesh() && GetMesh()->GetAnimInstance())
-	{
-		TimeAnim = DeadsAnim[rnd]->GetPlayLength();
-		PlayAnim_Multicast(DeadsAnim[rnd]);
-	}
-
-	if(GetController())
-	{
-		GetController()->UnPossess();
-	}
-
-	float DecraeseAnimTimer = FMath::FRandRange(0.2f,1.0f);
-
-	GetWorldTimerManager().SetTimer(TimerHandle_RadDollTimer, this, &ALastLightCharacter::EnableRagdoll_Multicast, TimeAnim - DecraeseAnimTimer, false);
-
-	SetLifeSpan(20.f);
-	if(GetCurrentWeapon())
-	{
-		GetCurrentWeapon()->SetLifeSpan(20.0f);
-	}
-	else
-	{
-		AttackCharEvent(false);
-	}
-
-	if(GetCapsuleComponent())
-	{
-		GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
-	}
-	
-}
-
-float ALastLightCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
-	AActor* DamageCauser)
-{
-	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-
-	if(HealthComponent && HealthComponent->GetIsAlive())
-	{
-		HealthComponent->ChangeHealthValue_OnServer(-DamageAmount);
-	}
-
-	/*if(DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
-	{
-		AProjectile* myProjectile = Cast<AProjectile>(DamageCauser);
-		if(myProjectile)
-		{		}
-	}*/
-
-
-	return ActualDamage;
-}
-
-void ALastLightCharacter::EnableRagdoll_Multicast_Implementation()
-{
-	if(GetMesh())
-	{
-		GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
-		GetMesh()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
-		GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
-		GetMesh()->SetSimulatePhysics(true);
-	}
-}
-
 void ALastLightCharacter::InputSprintPressed()
 {
 	if (!GetMovementComponent()->IsFalling())
@@ -256,6 +184,151 @@ void ALastLightCharacter::InputCrouchReleased()
 	ChangeMovementState();
 }
 
+void ALastLightCharacter::MoveForward(float Value)
+{
+	if (Value != 0.0f)
+	{
+		// add movement in that direction
+		AddMovementInput(GetActorForwardVector(), Value);
+	}
+}
+
+void ALastLightCharacter::MoveRight(float Value)
+{
+	if (Value != 0.0f)
+	{
+		MoveRightValue = Value;
+		// add movement in that direction
+		AddMovementInput(GetActorRightVector(), Value);
+	}
+}
+
+void ALastLightCharacter::Turn(float Val)
+{
+	TurnValue = Val;
+	AddControllerYawInput(Val);
+}
+
+void ALastLightCharacter::LookUp(float Val)
+{
+	LookValue = Val;
+	AddControllerPitchInput(Val);
+}
+
+void ALastLightCharacter::MovementTick()
+{
+	if (HealthComponent && HealthComponent->GetIsAlive())
+	{
+		if (GetController() && GetController()->IsLocalController())
+		{
+			APlayerController* myController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+			if(myController)
+			{
+				if (CurrentWeapon)
+				{
+					FHitResult HitResult;
+					
+					FVector Displacement = FVector(0);
+					bool bIsReduceDispersion = false;
+					
+					switch (MovementState)
+					{
+					case EMovementState::Walk_State:
+						Displacement = FVector(0.0f, 0.0f, 160.0f);
+						break;
+					case EMovementState::Crouch_State:
+						Displacement = FVector(0.0f, 0.0f, 60.0f);
+						break;
+					case EMovementState::Sprint_State:
+						break;
+					default:
+						break;
+					}
+
+					CurrentWeapon->UpdateWeaponCharacterMovementState_OnServer(HitResult.Location + Displacement, bIsReduceDispersion);
+				}
+			}
+		}
+	}
+}
+
+int32 ALastLightCharacter::GetCurrentWeaponIndex()
+{
+	return CurrentIndexWeapon;
+}
+
+bool ALastLightCharacter::GetIsAlive()
+{
+	bool result = false;
+	if(HealthComponent)
+	{
+		result = HealthComponent->GetIsAlive();
+	}
+
+	return result;
+}
+
+bool ALastLightCharacter::GetSprintRunEnabled()
+{
+	return SprintRunEnabled;
+}
+
+bool ALastLightCharacter::GetCrouchEnabled()
+{
+	return CrouchEnabled;
+}
+
+bool ALastLightCharacter::GetADSEnabled()
+{
+	return ADSEnabled;
+}
+
+AWeaponDefault* ALastLightCharacter::GetCurrentWeapon()
+{
+	return CurrentWeapon;
+}
+
+void ALastLightCharacter::AttackCharEvent(bool bIsFiring)
+{
+	AWeaponDefault* myWeapon = nullptr;
+	myWeapon = GetCurrentWeapon();
+	if (myWeapon)
+	{
+		myWeapon->SetWeaponStateFire_OnServer(bIsFiring);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ALastLight::AttackCharEvent - CurrentWeapon -NULL"));
+	}
+}
+
+void ALastLightCharacter::CrouchCharEvent(bool bIsCrouching)
+{
+	CrouchEnabled = bIsCrouching;
+	if (CrouchEnabled)
+	{
+		Crouch();
+	}
+	else
+	{
+		UnCrouch();
+	}
+}
+
+void ALastLightCharacter::JumpCharEvent(bool bIsJumping)
+{
+	SprintRunEnabled = false;
+	CrouchEnabled = false;
+	if (bIsJumping)
+	{
+		Jump();
+	}
+	else
+	{
+		StopJumping();
+	}
+}
+
 void ALastLightCharacter::CharacterUpdate()
 {
 	float ResSpeed = 150.0f;
@@ -302,181 +375,12 @@ void ALastLightCharacter::ChangeMovementState()
 		}
 	}
 
-	SetMovementState(NewState);
+	SetMovementState_OnServer(NewState);
 
 	AWeaponDefault* myWeapon = GetCurrentWeapon();
 	if (myWeapon)
 	{
-		myWeapon->UpdateStateWeapon(NewState);
-	}
-}
-
-void ALastLightCharacter::SetMovementState(EMovementState NewState)
-{
-	MovementState = NewState;
-	CharacterUpdate();
-}
-
-AWeaponDefault* ALastLightCharacter::GetCurrentWeapon()
-{
-	return CurrentWeapon;
-}
-
-int32 ALastLightCharacter::GetCurrentWeaponIndex()
-{
-	return CurrentIndexWeapon;
-}
-
-/*EMovementState ALastLightCharacter::GetMovementState()
-{
-	return MovementState;
-}*/
-
-bool ALastLightCharacter::GetSprintRunEnabled()
-{
-	return SprintRunEnabled;
-}
-
-bool ALastLightCharacter::GetCrouchEnabled()
-{
-	return CrouchEnabled;
-}
-
-bool ALastLightCharacter::GetADSEnabled()
-{
-	return ADSEnabled;
-}
-
-bool ALastLightCharacter::GetIsAlive()
-{
-	bool result = false;
-	if(HealthComponent)
-	{
-		result = HealthComponent->GetIsAlive();
-	}
-
-	return result;
-}
-
-void ALastLightCharacter::PlayAnim_Multicast_Implementation(UAnimMontage* Anim)
-{
-	if(GetMesh() && GetMesh()->GetAnimInstance())
-	{
-		GetMesh()->GetAnimInstance()->Montage_Play(Anim);
-	}
-}
-
-void ALastLightCharacter::CharacterDead_BP_Implementation()
-{
-	//In Blueprint
-}
-
-void ALastLightCharacter::MovementTick()
-{
-	FHitResult HitResult;
-
-	if (CurrentWeapon)
-	{
-		FVector Displacement = FVector(0);
-		bool bIsReduceDispersion = false;
-		switch (MovementState)
-		{
-		case EMovementState::Walk_State:
-			Displacement = FVector(0.0f, 0.0f, 120.0f);
-			break;
-		case EMovementState::Crouch_State:
-			Displacement = FVector(0.0f, 0.0f, 60.0f);
-			break;
-		case EMovementState::Sprint_State:
-			break;
-		default:
-			break;
-		}
-
-		CurrentWeapon->UpdateWeaponCharacterMovementState(HitResult.Location + Displacement, bIsReduceDispersion);
-	}
-}
-
-void ALastLightCharacter::TrySwitchNextWeapon()
-{
-	if(CurrentIndexWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.Num() > 1)
-	{
-		int8 OldIndex = CurrentIndexWeapon;
-		FAdditionalWeaponInfo OldInfo;
-		if(CurrentWeapon)
-		{
-			OldInfo = CurrentWeapon->AdditionalWeaponInfo;
-			if(CurrentWeapon->WeaponReloading)
-			{
-				CurrentWeapon->CancelReload();
-			}
-		}
-		if (InventoryComponent)
-		{
-			InventoryComponent->SwitchWeaponToIndexByNextPreviosIndex(CurrentIndexWeapon + 1, OldIndex, OldInfo, true);
-		}
-	}
-}
-
-void ALastLightCharacter::TrySwitchPreviosWeapon()
-{
-	if(CurrentIndexWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.Num() > 1)
-	{
-		int8 OldIndex = CurrentIndexWeapon;
-		FAdditionalWeaponInfo OldInfo;
-		if(CurrentWeapon)
-		{
-			OldInfo = CurrentWeapon->AdditionalWeaponInfo;
-			if(CurrentWeapon->WeaponReloading)
-			{
-				CurrentWeapon->CancelReload();
-			}
-		}
-		if (InventoryComponent)
-		{
-			InventoryComponent->SwitchWeaponToIndexByNextPreviosIndex(CurrentIndexWeapon - 1, OldIndex, OldInfo, false);
-		}
-	}
-}
-
-void ALastLightCharacter::AttackCharEvent(bool bIsFiring)
-{
-	AWeaponDefault* myWeapon;
-	myWeapon = GetCurrentWeapon();
-	if (myWeapon)
-	{
-		myWeapon->SetWeaponStateFire(bIsFiring);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ALastLight::AttackCharEvent - CurrentWeapon -NULL"));
-	}
-}
-
-void ALastLightCharacter::CrouchCharEvent(bool bIsCrouching)
-{
-	CrouchEnabled = bIsCrouching;
-	if (CrouchEnabled)
-	{
-		Crouch();
-	}
-	else
-	{
-		UnCrouch();
-	}
-}
-
-void ALastLightCharacter::JumpCharEvent(bool bIsJumping)
-{
-	SprintRunEnabled = false;
-	CrouchEnabled = false;
-	if (bIsJumping)
-	{
-		Jump();
-	}
-	else
-	{
-		StopJumping();
+		myWeapon->UpdateStateWeapon_OnServer(NewState);
 	}
 }
 
@@ -516,10 +420,10 @@ void ALastLightCharacter::InitWeapon(FName IdWeaponName, FAdditionalWeaponInfo W
 					
 					myWeapon->ReloadTimer = myWeaponInfo.ReloadTime;
 					//change _onserver
-					myWeapon->UpdateStateWeapon(MovementState);
+					myWeapon->UpdateStateWeapon_OnServer(MovementState);
+					
 					myWeapon->AdditionalWeaponInfo = WeaponAdditionalInfo;
 					CurrentIndexWeapon = NewCurrentIndexWeapon;
-										
 					
 					myWeapon->OnWeaponReloadStart.AddDynamic(this, &ALastLightCharacter::WeaponReloadStart);
 					myWeapon->OnWeaponReloadEnd.AddDynamic(this, &ALastLightCharacter::WeaponReloadEnd);
@@ -555,10 +459,7 @@ void ALastLightCharacter::TryReloadWeapon()
 {
 	if (HealthComponent && HealthComponent->GetIsAlive() && CurrentWeapon && !CurrentWeapon->WeaponAiming)
 	{
-		if (CurrentWeapon->GetWeaponRound() < CurrentWeapon->WeaponSetting.MaxRound && CurrentWeapon->CheckCanWeaponReload())
-		{
-			TryReloadWeapon_OnServer();
-		}
+		TryReloadWeapon_OnServer();
 	}
 }
 
@@ -567,30 +468,6 @@ void ALastLightCharacter::TryReloadWeapon_OnServer_Implementation()
 	if(CurrentWeapon->GetWeaponRound() < CurrentWeapon->WeaponSetting.MaxRound && CurrentWeapon->CheckCanWeaponReload())
 	{
 		CurrentWeapon->InitReload();
-	}
-}
-
-void ALastLightCharacter::TrySwitchWeaponToIndexByKeyInput_OnServer_Implementation(int32 ToIndex)
-{
-	bool bIsSucces = false;
-	if(CurrentWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.IsValidIndex(ToIndex))
-	{
-		if(CurrentIndexWeapon != ToIndex && InventoryComponent)
-		{
-			int32 OldIndex = CurrentIndexWeapon;
-			FAdditionalWeaponInfo OldInfo;
-
-			if(CurrentWeapon)
-			{
-				OldInfo = CurrentWeapon->AdditionalWeaponInfo;
-				if(CurrentWeapon->WeaponReloading)
-				{
-					CurrentWeapon->CancelReload();
-				}
-			}
-
-			bIsSucces = InventoryComponent->SwitchWeaponByIndex(ToIndex, OldIndex, OldInfo);
-		}
 	}
 }
 
@@ -635,35 +512,164 @@ void ALastLightCharacter::WeaponReloadEnd_BP_Implementation(bool bIsSuccess)
 	//In Blueprint
 }
 
-void ALastLightCharacter::MoveForward(float Value)
+void ALastLightCharacter::TrySwitchNextWeapon()
 {
-	if (Value != 0.0f)
+	if(CurrentIndexWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.Num() > 1)
 	{
-		// add movement in that direction
-		AddMovementInput(GetActorForwardVector(), Value);
+		int8 OldIndex = CurrentIndexWeapon;
+		FAdditionalWeaponInfo OldInfo;
+		if(CurrentWeapon)
+		{
+			OldInfo = CurrentWeapon->AdditionalWeaponInfo;
+			if(CurrentWeapon->WeaponReloading)
+			{
+				CurrentWeapon->CancelReload();
+			}
+		}
+		if (InventoryComponent)
+		{
+			if (InventoryComponent->SwitchWeaponToIndexByNextPreviosIndex(CurrentIndexWeapon + 1, OldIndex, OldInfo, true))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("ALastLight::TrySwitchNextWeapon - SwitchNextWeapon"));
+			}
+		}
 	}
 }
 
-void ALastLightCharacter::MoveRight(float Value)
+void ALastLightCharacter::TrySwitchPreviosWeapon()
 {
-	if (Value != 0.0f)
+	if(CurrentIndexWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.Num() > 1)
 	{
-		MoveRightValue = Value;
-		// add movement in that direction
-		AddMovementInput(GetActorRightVector(), Value);
+		int8 OldIndex = CurrentIndexWeapon;
+		FAdditionalWeaponInfo OldInfo;
+		if(CurrentWeapon)
+		{
+			OldInfo = CurrentWeapon->AdditionalWeaponInfo;
+			if(CurrentWeapon->WeaponReloading)
+			{
+				CurrentWeapon->CancelReload();
+			}
+		}
+		if (InventoryComponent)
+		{
+			if(InventoryComponent->SwitchWeaponToIndexByNextPreviosIndex(CurrentIndexWeapon - 1, OldIndex, OldInfo, false))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("ALastLight::TrySwitchPreviosWeapon - SwitchPreviosWeapon"));
+			}
+		}
 	}
 }
 
-void ALastLightCharacter::Turn(float Val)
+void ALastLightCharacter::TrySwitchWeaponToIndexByKeyInput_OnServer_Implementation(int32 ToIndex)
 {
-	TurnValue = Val;
-	AddControllerYawInput(Val);
+	bool bIsSucces = false;
+	if(CurrentWeapon && !CurrentWeapon->WeaponReloading && InventoryComponent->WeaponSlots.IsValidIndex(ToIndex))
+	{
+		if(CurrentIndexWeapon != ToIndex && InventoryComponent)
+		{
+			int32 OldIndex = CurrentIndexWeapon;
+			FAdditionalWeaponInfo OldInfo;
+
+			if(CurrentWeapon)
+			{
+				OldInfo = CurrentWeapon->AdditionalWeaponInfo;
+				if(CurrentWeapon->WeaponReloading)
+				{
+					CurrentWeapon->CancelReload();
+				}
+			}
+
+			bIsSucces = InventoryComponent->SwitchWeaponByIndex(ToIndex, OldIndex, OldInfo);
+		}
+	}
 }
 
-void ALastLightCharacter::LookUp(float Val)
+void ALastLightCharacter::SetMovementState_OnServer_Implementation(EMovementState NewState)
 {
-	LookValue = Val;
-	AddControllerPitchInput(Val);
+	SetMovementState_Multicast(NewState);
+}
+
+void ALastLightCharacter::SetMovementState_Multicast_Implementation(EMovementState NewState)
+{
+	MovementState = NewState;
+	CharacterUpdate();
+}
+
+void ALastLightCharacter::PlayAnim_Multicast_Implementation(UAnimMontage* Anim)
+{
+	if(GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(Anim);
+	}
+}
+
+void ALastLightCharacter::CharacterDead_BP_Implementation()
+{
+	//In Blueprint
+}
+
+void ALastLightCharacter::CharacterDead()
+{
+	CharacterDead_BP();
+
+	float TimeAnim = 0.0f;
+	int32 rnd = FMath::RandHelper(DeadsAnim.Num());
+
+	if(DeadsAnim.IsValidIndex(rnd) && DeadsAnim[rnd] && GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		TimeAnim = DeadsAnim[rnd]->GetPlayLength();
+		PlayAnim_Multicast(DeadsAnim[rnd]);
+	}
+
+	if(GetController())
+	{
+		GetController()->UnPossess();
+	}
+
+	float DecraeseAnimTimer = FMath::FRandRange(0.2f,1.0f);
+
+	GetWorldTimerManager().SetTimer(TimerHandle_RadDollTimer, this, &ALastLightCharacter::EnableRagdoll_Multicast, TimeAnim - DecraeseAnimTimer, false);
+
+	SetLifeSpan(20.f);
+	if(GetCurrentWeapon())
+	{
+		GetCurrentWeapon()->SetLifeSpan(20.0f);
+	}
+	else
+	{
+		AttackCharEvent(false);
+	}
+
+	if(GetCapsuleComponent())
+	{
+		GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	}
+	
+}
+
+void ALastLightCharacter::EnableRagdoll_Multicast_Implementation()
+{
+	if(GetMesh())
+	{
+		GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
+		GetMesh()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+		GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+		GetMesh()->SetSimulatePhysics(true);
+	}
+}
+
+
+float ALastLightCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if(HealthComponent && HealthComponent->GetIsAlive())
+	{
+		HealthComponent->ChangeHealthValue_OnServer(-DamageAmount);
+	}
+	
+	return ActualDamage;
 }
 
 void ALastLightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -671,4 +677,7 @@ void ALastLightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ALastLightCharacter, CurrentIndexWeapon);
+	DOREPLIFETIME(ALastLightCharacter, MovementState);
+	DOREPLIFETIME(ALastLightCharacter, CurrentWeapon);
+	
 }
